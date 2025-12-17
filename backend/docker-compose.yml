@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  mysql_db:
+    image: mysql:8.0 # Or your desired MySQL version
+    environment:
+      MYSQL_ROOT_PASSWORD: CEiAdmin0 # Replace with a strong password
+      MYSQL_DATABASE: ceidb # Optional: Create a default database
+      MYSQL_USER: cei # Optional: Create a default user
+      MYSQL_PASSWORD: CEi001 # Optional: Set password for the default user
+    volumes:
+      - mysql_data:/var/lib/mysql # Mounts the named volume 'mysql_data' to MySQL's data directory
+    ports:
+      - "3306:3306" # Expose MySQL port (optional, for direct host access)
+    restart: always
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    depends_on:
+      - mysql_db # Ensures 'mysql_db' service starts before 'phpmyadmin'
+    environment:
+      PMA_HOST: mysql_db # Connects phpMyAdmin to the 'mysql_db' service
+      MYSQL_ROOT_PASSWORD: CEiAdmin0 # Use the same root password as MySQL
+    ports:
+      - "8080:80" # Expose phpMyAdmin on host port 8080
+    restart: always
+
+volumes:
+  mysql_data: # Defines the named volume for MySQL data persistence
