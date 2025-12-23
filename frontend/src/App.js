@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import Login from './components/Login';
 import TodoList from './components/TodoList';
+import './App.css';
+import './output.css';
 
 function App() {
     const [currentUser, setCurrentUser] = useState(null);
@@ -26,7 +28,7 @@ function App() {
 
     return (
         <div className="App">
-            <h1>Full Stack Todo App</h1>
+            <p class="text-5xl">Full Stack Todo App</p>
             {/* Conditional rendering based on login status */}
             {currentUser ? (
                 <TodoList username={currentUser} onLogout={handleLogout} />

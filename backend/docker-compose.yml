@@ -24,6 +24,7 @@ services:
     ports:
       - "8080:80" # Expose phpMyAdmin on host port 8080
     restart: always
+  
 
 volumes:
   mysql_data: # Defines the named volume for MySQL data persistence
