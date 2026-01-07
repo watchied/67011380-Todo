@@ -49,16 +49,15 @@ function Login({ onLogin }) {
     };
 
     return (
-        <div>
-            <h2>Login (Username Only)</h2>
+        <div class>
+            <h2 className="text-2xl font-bold text-500 mb-4 w-full max-w-sm text-center">Login (Username Only)</h2>
             <form onSubmit={handleSubmit}>
                 <input
-                    type="text"
-                    placeholder="Enter your username"
+                    input type="text" id="first_name" class="bg-neutral-secondary-medium mb-2 border border-default-medium text-heading text-sm rounded-md focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body" placeholder="Username" required 
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                 />
-                <button type="submit">Login</button>
+                <button type="text" id="first_name" class="w-full px-3 py-2.5 bg-orange-400 hover:bg-orange-400 text-white font-bold rounded-md shadow-sm transition-colors" requiredtype="submit">Login</button>
             </form>
             {error && <p style={{ color: 'red' }}>{error}</p>}
         </div>

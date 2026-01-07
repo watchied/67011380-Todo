@@ -14,8 +14,8 @@ app.use(express.json()); // Enable reading JSON data from request body
 // --- MySQL Connection Setup ---
 const db = mysql.createConnection({
     host: 'localhost',
-    user: 'root', // CHANGE THIS to your MySQL username
-    password: 'CEiAdmin0', // CHANGE THIS to your MySQL password
+    user: 'cei', // CHANGE THIS to your MySQL username
+    password: 'CEi001', // CHANGE THIS to your MySQL password
     database: 'ceidb' // Ensure this matches your database name
 });
 

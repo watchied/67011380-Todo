@@ -107,37 +107,70 @@ function TodoList({ username, onLogout }) {
     };
 
     return (
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2>Todo List for: {username}</h2>
-                <button onClick={handleLogout}>Logout</button>
-            </div>
-            
-            <form onSubmit={handleAddTodo}>
-                <input
-                    type="text"
-                    placeholder="New Task"
-                    value={newTask}
-                    onChange={(e) => setNewTask(e.target.value)}
-                />
-                <button type="submit">Add Task</button>
-            </form>
+        <div className="w-full max-w-sm sm:max-w-md mx-auto">
+    <div className="flex justify-between items-center mb-6 pb-2 border-b border-gray-100">
+        <h2 className="text-lg font-bold text-gray-700">
+            Todo List for: <span className="text-orange-500">{username}</span>
+        </h2>
+        <button 
+            onClick={handleLogout}
+            className="text-sm font-medium text-gray-400 hover:text-red-500 transition-colors"
+        >
+            Logout
+        </button>
+    </div>
 
-            <ul>
-                {todos.map(todo => (
-                    <li key={todo.id} style={{ textDecoration: todo.done ? 'line-through' : 'none' }}>
-                        <input
-                            type="checkbox"
-                            checked={!!todo.done} // Convert MySQL's 0/1 to boolean
-                            onChange={() => handleToggleDone(todo.id, todo.done)}
-                        />
-                        {todo.task} 
-                        <small> (Updated: {new Date(todo.updated).toLocaleString()})</small>
-                        <button onClick={() => handleDeleteTodo(todo.id)} style={{ marginLeft: '10px' }}>Delete</button>
-                    </li>
-                ))}
-            </ul>
+    <form onSubmit={handleAddTodo} className="mb-8">
+        <div className="flex border border-gray-200 rounded-xl overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-orange-500 transition-all">
+            <input
+                type="text"
+                placeholder="New Task"
+                className="flex-1 px-4 py-3 outline-none text-sm"
+                value={newTask}
+                onChange={(e) => setNewTask(e.target.value)}
+            />
+            <button 
+                type="submit"
+                className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-colors"
+            >
+                Add Task
+            </button>
         </div>
+    </form>
+
+    <ul className="space-y-3">
+        {todos.map(todo => (
+            <li 
+                key={todo.id} 
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 group hover:border-orange-200 transition-all"
+            >
+                <div className="flex items-center gap-3 flex-1">
+                    <input
+                        type="checkbox"
+                        className="w-5 h-5 accent-orange-400 cursor-pointer"
+                        checked={!!todo.done}
+                        onChange={() => handleToggleDone(todo.id, todo.done)}
+                    />
+                    <div className="flex flex-col">
+                        <span className={`text-sm font-medium ${todo.done ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                            {todo.task}
+                        </span>
+                        <small className="text-[10px] text-gray-400">
+                            Updated: {new Date(todo.updated).toLocaleString()}
+                        </small>
+                    </div>
+                </div>
+                
+                <button 
+                    onClick={() => handleDeleteTodo(todo.id)}
+                    className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors opacity-0 group-hover:opacity-100"
+                >
+                    Delete
+                </button>
+            </li>
+        ))}
+    </ul>
+</div>
     );
 }
 
