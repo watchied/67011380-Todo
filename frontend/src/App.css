@@ -1,40 +1,82 @@
-@import "tailwindcss";
+/* src/App.css */
 
-.App {
-  text-align: center;
+/* 1. Global Reset & Professional Font */
+body {
+  background-color: #f3f4f7; /* Soft grey background */
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #333;
+  margin: 0;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+/* 2. Modern Card Styling */
+.card {
+  border: none !important;
+  border-radius: 1.25rem !important; /* Extra rounded corners */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+  background: #ffffff;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+/* 3. Input Fields Focus State */
+.form-control {
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e0e0e0;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.form-control:focus {
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.1);
+  border-color: #0d6efd;
+}
+
+/* 4. Professional Buttons */
+.btn {
+  border-radius: 0.75rem;
+  padding: 0.6rem 1.5rem;
+  font-weight: 600;
+  transition: transform 0.1s ease-in-out;
+}
+
+.btn:active {
+  transform: scale(0.98); /* Tactile feedback for mobile */
+}
+
+/* 5. Custom Logo Container */
+.logo-wrapper {
+  width: 80px;
+  height: 80px;
+  background: white;
+  border-radius: 20px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  margin: 0 auto 1.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
-.App-link {
-  color: #61dafb;
+/* 6. Increase Internal Spacing */
+.card-body {
+  padding: 1.5rem !important; /* Mobile padding */
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+/* 7. Desktop-Specific Spacing */
+@media (min-width: 576px) {
+  .card-body {
+    padding: 2.5rem !important; /* More breathing room for larger screens */
   }
-  to {
-    transform: rotate(360deg);
-  }
+}
+
+/* 8. Fix Select Box and List Spacing */
+.form-select-sm {
+  border-radius: 0.5rem;
+  padding-right: 1.8rem; /* Space for the dropdown arrow */
+  border-color: #e0e0e0;
+}
+
+.list-group-item {
+  transition: background-color 0.2s ease;
+}
+
+/* Optional: Slight hover effect to make the list feel interactive */
+.list-group-item:hover {
+  background-color: #fafafa;
 }
