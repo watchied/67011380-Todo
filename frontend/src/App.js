@@ -8,13 +8,19 @@ import './App.css'; // Make sure this is imported!
 function App() {
     const [currentUser, setCurrentUser] = useState(null);
     const [page, setPage] = useState('login');
-    
+    const [profileImage, setProfileImage] = useState('');
     useEffect(() => {
         const storedUser = localStorage.getItem('todo_username');
         if (storedUser) setCurrentUser(storedUser);
+        const storedImage = localStorage.getItem('todo_profile');
+        if (storedImage) setProfileImage(storedImage);
     }, []);
 
-    const handleLogin = (username) => setCurrentUser(username);
+    const handleLogin = (username,image) => {
+        setCurrentUser(username);
+        setProfileImage(image);
+        localStorage.setItem('todo_profile', image);
+    };
     const handleLogout = () => {
         localStorage.removeItem('todo_username');
         setCurrentUser(null);
@@ -46,6 +52,7 @@ function App() {
                                 <TodoList
                                     username={currentUser}
                                     onLogout={handleLogout}
+                                    profileImage={profileImage}
                                 />
                             ) : page === 'login' ? (
                                 <Login

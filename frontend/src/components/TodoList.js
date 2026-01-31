@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
-function TodoList({ username, onLogout }) {
+function TodoList({ username, onLogout ,profileImage}) {
     const [todos, setTodos] = useState([]);
     const [newTask, setNewTask] = useState('');
     const [targetDate, setTargetDate] = useState('');
@@ -99,6 +99,7 @@ function TodoList({ username, onLogout }) {
         return (
             <div className="mb-5" key={statusLabel}>
                 {/* Applied custom hex backgrounds here */}
+                
                 <h6 className="p-3 rounded-3 fw-bold mb-3" style={getStatusHeaderClass(statusLabel)}>
                     {statusLabel}
                 </h6>
@@ -107,7 +108,7 @@ function TodoList({ username, onLogout }) {
                         // 3. Overdue Logic (Compare target to "now")
                         const isOverdue = new Date(todo.target_datetime) < new Date() && todo.status !== 'Done';
                         const dateColor = isOverdue ? '#B91C1C' : '#2563EB'; // Red if overdue, Blue if future
-
+                        
                         return (
                             <div key={todo.id} className="list-group-item px-0 py-3 border-bottom">
                                 <div className="d-flex align-items-start justify-content-between gap-3">
@@ -156,6 +157,14 @@ function TodoList({ username, onLogout }) {
     return (
         <div>
             <div className="d-flex justify-content-between align-items-center mb-4">
+                {profileImage && (
+                    <img 
+                        src={profileImage} 
+                        alt="Profile" 
+                        className="rounded-circle border"
+                        style={{ width: '45px', height: '45px', objectFit: 'cover' }}
+                    />
+                )}
                 <h5 className="mb-0 fw-bold text-secondary">
                     User: <span className="text-dark">{username}</span>
                 </h5>
