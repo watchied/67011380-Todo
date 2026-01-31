@@ -8,6 +8,8 @@ const upload = multer({ dest: 'uploads/' });
 const app = express();
 const axios = require('axios');
 const port = 5001;
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 app.use('/uploads', express.static('uploads'));
 app.use(cors());
 app.use(express.json());
@@ -33,8 +35,8 @@ db.connect(err => {
 // ------------------------------------
 app.post('/api/login', async (req, res) => {
     const { username, password, captchaToken } = req.body;
-
     if (!username || !password || !captchaToken) {
+        console.log(captchaToken);
         return res.status(400).json({ message: 'Missing credentials or captcha' });
     }
 
@@ -84,6 +86,70 @@ app.post('/api/login', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });
+    }
+});
+
+app.post('/api/google-login', async (req, res) => {
+    const { token } = req.body;
+
+    if (!token) {
+        return res.status(400).json({ message: 'Token is required' });
+    }
+
+    try {
+        // 1. Verify the token with Google
+        const ticket = await client.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID, 
+        });
+
+        const payload = ticket.getPayload();
+        const { email, name, sub: googleId } = payload;
+        
+        // 2. Check if user exists in your MySQL DB
+        // Using email or a specific 'google_id' column is recommended
+        db.query(
+            'SELECT * FROM users WHERE username = ? OR username = ?',
+            [email, googleId],
+            (err, results) => {
+                if (err) return res.status(500).json({ message: 'Database error' });
+
+                if (results.length > 0) {
+                    // User exists, log them in
+                    const user = results[0];
+                    return res.json({
+                        success: true,
+                        user: {
+                            id: user.id,
+                            username: user.full_name,
+                            fullName: user.full_name
+                        }
+                    });
+                } else {
+                    // User doesn't exist, create a new record
+                    // Note: password can be null or a random string for OAuth users
+                    db.query(
+                        'INSERT INTO users (full_name, username, password) VALUES (?, ?, ?)',
+                        [name, email, 'OAUTH_USER_NO_PASSWORD'],
+                        (err, result) => {
+                            if (err) return res.status(500).json({ message: 'Error creating user' });
+                            
+                            res.json({
+                                success: true,
+                                user: {
+                                    id: result.insertId,
+                                    username: email,
+                                    fullName: name
+                                }
+                            });
+                        }
+                    );
+                }
+            }
+        );
+    } catch (error) {
+        console.error('Google Verify Error:', error);
+        res.status(401).json({ message: 'Invalid Google token' });
     }
 });
 // ------------------------------------

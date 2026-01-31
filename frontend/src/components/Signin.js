@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState , useRef} from 'react';
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import ReCAPTCHA from "react-google-recaptcha";
 const API_URL = process.env.REACT_APP_API_URL;
 
 function SignUp({ onSuccess, goToLogIn }) {
+    const recaptchaRef = useRef(null);
     const [fullName, setFullName] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -11,16 +12,24 @@ function SignUp({ onSuccess, goToLogIn }) {
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [captchaToken, setCaptchaToken] = useState(null);
+    const handleLoginFail = async () => {
+        setCaptchaToken(null);
+        if (recaptchaRef.current) {
+            recaptchaRef.current.reset();
+        }
+    };
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
         if (!fullName || !username || !password) {
             setError('Please fill in all required fields.');
+            handleLoginFail();
             return;
         }
         if (password.length < 8) {
             setError('Password must be at least 8 characters long.');
+            handleLoginFail();
             return;
         }
         if (!captchaToken) {
@@ -46,6 +55,7 @@ function SignUp({ onSuccess, goToLogIn }) {
 
             if (!response.ok) {
                 setError(data.message || 'Registration failed.');
+                handleLoginFail();
                 return;
             }
 
@@ -143,6 +153,7 @@ function SignUp({ onSuccess, goToLogIn }) {
                     </div>
                 )}
                 <ReCAPTCHA
+                    ref={recaptchaRef}
                     sitekey="6LeQBlssAAAAAFZTj22xDHurWEaMtcsTyngKlH4H"
                     onChange={(token) => setCaptchaToken(token)}
                 />

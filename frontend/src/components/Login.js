@@ -1,41 +1,33 @@
 // frontend/src/components/Login.js
-import React, { useEffect, useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import ReCAPTCHA from "react-google-recaptcha";
-//import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
-import {gapi} from 'gapi-script';
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
+import { jwtDecode } from "jwt-decode";
 const API_URL = process.env.REACT_APP_API_URL;
 
 function Login({ onLogin, goToSignUp }) {
+    const recaptchaRef = useRef(null);
     const [username, setUsername] = useState('');
     const [error, setError] = useState('');
     const [password, setPassword] = useState('');
     const [captchaToken, setCaptchaToken] = useState(null);
     const [showPassword, setShowPassword] = useState(false);
     const GOOGLE_CLIENT_ID = "618947792486-r6e8k3bib6dgm47c4i5di5ekvasc3r08.apps.googleusercontent.com";
-    useEffect(() => {
-        const initClient = () => {
-            gapi.client.init({
-                clientId: GOOGLE_CLIENT_ID,
-                scope: ''
-            });
+
+    const handleLoginFail = async () => {
+        setCaptchaToken(null);
+        if (recaptchaRef.current) {
+            recaptchaRef.current.reset();
         }
-        gapi.load('client:auth2', initClient);
-    }, []);
-    const handleGoogleLoginSuccess = (response) => {
-        console.log("Google Login Success:", response);
-    }
-
-    const handleGoogleLoginFailure = (error) => {
-        console.error("Google Login Failure:", error);
-    }
-
+    };
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
         if (!username.trim() || !password.trim()) {
             setError('Please enter username and password.');
+            handleLoginFail();
             return;
         }
 
@@ -48,12 +40,13 @@ function Login({ onLogin, goToSignUp }) {
             const response = await fetch(`${API_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({ username, password, captchaToken }),
             });
-
+            console.log(response);
             const data = await response.json();
             if (!response.ok) {
                 setError(data.message || 'Login failed.');
+                handleLoginFail();
                 return;
             }
 
@@ -64,7 +57,35 @@ function Login({ onLogin, goToSignUp }) {
             setError('Network error: Could not connect to the server.');
         }
     };
-    
+    const handleGoogleSuccess = async (credentialResponse) => {
+        try {
+            console.log(credentialResponse);
+            // 1. (Optional) Decode locally to get name/email immediately
+            const decoded = jwtDecode(credentialResponse.credential);
+
+            // 2. Send token to your backend for verification
+            const response = await fetch(`${API_URL}/google-login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: credentialResponse.credential }),
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                localStorage.setItem('todo_username', data.user.username);
+                onLogin(data.user.username);
+            } else {
+                setError(data.message || 'Google login failed on server.');
+            }
+        } catch (err) {
+            setError('Failed to connect to server during Google login.');
+        }
+    };
+
+    const handleGoogleError = () => {
+        console.log("Google Login Failed");
+        setError("Google Login Failed. Please try again.");
+    };
     return (
         <div className="text-center">
             <h4 className="fw-bold mb-3">Login</h4>
@@ -119,13 +140,26 @@ function Login({ onLogin, goToSignUp }) {
                         {error}
                     </div>
                 )}
+                <div className="d-flex justify-content-center mt-2">
                 <ReCAPTCHA
+                    ref={recaptchaRef}
                     sitekey="6LeQBlssAAAAAFZTj22xDHurWEaMtcsTyngKlH4H"
                     onChange={(token) => setCaptchaToken(token)}
                 />
+                </div>
                 <button type="submit" className="btn btn-primary w-100 mt-2 py-2">
                     Login
                 </button>
+                <div className="mt-2">
+                    <GoogleLogin
+
+                        onSuccess={handleGoogleSuccess}
+                        onError={handleGoogleError}
+                        shape="pill"
+                        theme="outline"
+                        
+                    />
+                </div>
                 <div className="d-flex justify-content-end mt-3">
                     <span
                         className="small text-primary"
@@ -135,7 +169,7 @@ function Login({ onLogin, goToSignUp }) {
                         Create account
                     </span>
                 </div>
-                
+
             </form>
         </div>
     );

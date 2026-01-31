@@ -25,11 +25,13 @@ function TodoList({ username, onLogout }) {
 
     const handleAddTodo = async (e) => {
         e.preventDefault();
+        
         if (!newTask.trim() || !targetDate) {
             alert("Please provide both a task and a target date.");
             return;
         }
         try {
+            console.log("Current Username (Email):", username);
             const response = await fetch(`${API_URL}/todos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
