@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
-function TodoList({ username, onLogout ,profileImage}) {
+function TodoList({ username, onLogout, profileImage }) {
     const [todos, setTodos] = useState([]);
     const [newTask, setNewTask] = useState('');
     const [targetDate, setTargetDate] = useState('');
@@ -25,7 +25,7 @@ function TodoList({ username, onLogout ,profileImage}) {
 
     const handleAddTodo = async (e) => {
         e.preventDefault();
-        
+
         if (!newTask.trim() || !targetDate) {
             alert("Please provide both a task and a target date.");
             return;
@@ -35,10 +35,10 @@ function TodoList({ username, onLogout ,profileImage}) {
             const response = await fetch(`${API_URL}/todos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    username, 
-                    task: newTask, 
-                    target_datetime: targetDate 
+                body: JSON.stringify({
+                    username,
+                    task: newTask,
+                    target_datetime: targetDate
                 }),
             });
             if (!response.ok) return;
@@ -76,7 +76,7 @@ function TodoList({ username, onLogout ,profileImage}) {
         }
     };
 
-// 1. Updated Background Colors for Group Headers
+    // 1. Updated Background Colors for Group Headers
     const getStatusHeaderClass = (status) => {
         switch (status) {
             case 'Doing': return { backgroundColor: '#FFF4CC', color: '#856404' }; // Light Yellow
@@ -91,6 +91,17 @@ function TodoList({ username, onLogout ,profileImage}) {
         return date.toLocaleString('en-GB'); // en-GB uses day/month/year format
     };
 
+    const getProfileImageUrl = (imageName) => {
+        if (!imageName) return "/default-avatar.png"; // กรณีไม่มีรูป
+
+        // ถ้าขึ้นต้นด้วย http แสดงว่าเป็นลิงก์จาก Google
+        if (imageName.startsWith('http')) {
+            return imageName;
+        }
+
+        // ถ้าไม่ใช่ลิงก์ ให้ดึงจากโฟลเดอร์ uploads ของ Backend (ตัด /api ออกตามที่คุยกัน)
+        return `http://localhost:5001/uploads/${imageName}`;
+    };
     const renderTaskGroup = (statusLabel) => {
         const filteredTasks = todos
             .filter(t => t.status === statusLabel)
@@ -99,7 +110,7 @@ function TodoList({ username, onLogout ,profileImage}) {
         return (
             <div className="mb-5" key={statusLabel}>
                 {/* Applied custom hex backgrounds here */}
-                
+
                 <h6 className="p-3 rounded-3 fw-bold mb-3" style={getStatusHeaderClass(statusLabel)}>
                     {statusLabel}
                 </h6>
@@ -108,7 +119,7 @@ function TodoList({ username, onLogout ,profileImage}) {
                         // 3. Overdue Logic (Compare target to "now")
                         const isOverdue = new Date(todo.target_datetime) < new Date() && todo.status !== 'Done';
                         const dateColor = isOverdue ? '#B91C1C' : '#2563EB'; // Red if overdue, Blue if future
-                        
+
                         return (
                             <div key={todo.id} className="list-group-item px-0 py-3 border-bottom">
                                 <div className="d-flex align-items-start justify-content-between gap-3">
@@ -128,8 +139,8 @@ function TodoList({ username, onLogout ,profileImage}) {
                                     </div>
 
                                     <div className="d-flex align-items-center gap-2 pt-1">
-                                        <select 
-                                            className="form-select form-select-sm" 
+                                        <select
+                                            className="form-select form-select-sm"
                                             style={{ width: '95px', fontSize: '0.8rem' }}
                                             value={todo.status}
                                             onChange={(e) => handleStatusChange(todo.id, e.target.value)}
@@ -138,8 +149,8 @@ function TodoList({ username, onLogout ,profileImage}) {
                                             <option value="Doing">Doing</option>
                                             <option value="Done">Done</option>
                                         </select>
-                                        <button 
-                                            className="btn btn-link text-danger text-decoration-none btn-sm fw-bold p-0 ms-1" 
+                                        <button
+                                            className="btn btn-link text-danger text-decoration-none btn-sm fw-bold p-0 ms-1"
                                             onClick={() => handleDeleteTodo(todo.id)}
                                         >
                                             Delete
@@ -158,11 +169,12 @@ function TodoList({ username, onLogout ,profileImage}) {
         <div>
             <div className="d-flex justify-content-between align-items-center mb-4">
                 {profileImage && (
-                    <img 
-                        src={profileImage} 
-                        alt="Profile" 
+                    <img
+                        src={getProfileImageUrl(profileImage)}
+                        alt="Profile"
                         className="rounded-circle border"
                         style={{ width: '45px', height: '45px', objectFit: 'cover' }}
+                        onError={(e) => { e.target.src = "/default-avatar.png"; }}
                     />
                 )}
                 <h5 className="mb-0 fw-bold text-secondary">
@@ -172,7 +184,7 @@ function TodoList({ username, onLogout ,profileImage}) {
                     Logout
                 </button>
             </div>
-            
+
             <form onSubmit={handleAddTodo} className="mb-5">
                 <div className="mb-3">
                     <input

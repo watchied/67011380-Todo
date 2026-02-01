@@ -51,8 +51,8 @@ function Login({ onLogin, goToSignUp }) {
             }
 
             localStorage.setItem('todo_username', data.user.username);
-            onLogin(data.user.username);
-
+            localStorage.setItem('todo_profile', data.user.profileImage); // เซฟลงเครื่อง
+            onLogin(data.user.username, data.user.profileImage);
         } catch (err) {
             setError('Network error: Could not connect to the server.');
         }
@@ -62,18 +62,20 @@ function Login({ onLogin, goToSignUp }) {
             console.log(credentialResponse);
             // 1. (Optional) Decode locally to get name/email immediately
             const decoded = jwtDecode(credentialResponse.credential);
-
+            const googleProfilePic = decoded.picture;
             // 2. Send token to your backend for verification
             const response = await fetch(`${API_URL}/google-login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: credentialResponse.credential }),
+                body: JSON.stringify({ token: credentialResponse.credential,
+                profileImage: googleProfilePic }),
             });
 
             const data = await response.json();
             if (response.ok) {
                 localStorage.setItem('todo_username', data.user.username);
-                onLogin(data.user.username);
+                localStorage.setItem('todo_profile', data.user.profileImage || '');
+                onLogin(data.user.username, data.user.profileImage || '');
             } else {
                 setError(data.message || 'Google login failed on server.');
             }
@@ -141,11 +143,11 @@ function Login({ onLogin, goToSignUp }) {
                     </div>
                 )}
                 <div className="d-flex justify-content-center mt-2">
-                <ReCAPTCHA
-                    ref={recaptchaRef}
-                    sitekey="6LeQBlssAAAAAFZTj22xDHurWEaMtcsTyngKlH4H"
-                    onChange={(token) => setCaptchaToken(token)}
-                />
+                    <ReCAPTCHA
+                        ref={recaptchaRef}
+                        sitekey="6LeQBlssAAAAAFZTj22xDHurWEaMtcsTyngKlH4H"
+                        onChange={(token) => setCaptchaToken(token)}
+                    />
                 </div>
                 <button type="submit" className="btn btn-primary w-100 mt-2 py-2">
                     Login
@@ -157,7 +159,7 @@ function Login({ onLogin, goToSignUp }) {
                         onError={handleGoogleError}
                         shape="pill"
                         theme="outline"
-                        
+
                     />
                 </div>
                 <div className="d-flex justify-content-end mt-3">

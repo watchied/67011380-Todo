@@ -78,7 +78,8 @@ app.post('/api/login', async (req, res) => {
                     user: {
                         id: user.id,
                         username: user.username,
-                        fullName: user.full_name
+                        fullName: user.full_name,
+                        profileImage: user.profile_image
                     }
                 });
             }
@@ -90,7 +91,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/google-login', async (req, res) => {
-    const { token } = req.body;
+    const { token, profileImage } = req.body;
 
     if (!token) {
         return res.status(400).json({ message: 'Token is required' });
@@ -115,22 +116,30 @@ app.post('/api/google-login', async (req, res) => {
                 if (err) return res.status(500).json({ message: 'Database error' });
 
                 if (results.length > 0) {
-                    // User exists, log them in
                     const user = results[0];
-                    return res.json({
-                        success: true,
-                        user: {
-                            id: user.id,
-                            username: user.full_name,
-                            fullName: user.full_name
+                    db.query(
+                        'UPDATE users SET profile_image = ? WHERE id = ?',
+                        [profileImage, user.id],
+                        (updateErr) => {
+                            if (updateErr) console.error('Error updating profile image:', updateErr);
+                            
+                            return res.json({
+                                success: true,
+                                user: {
+                                    id: user.id,
+                                    username: user.full_name,
+                                    fullName: user.full_name,
+                                    profileImage: profileImage // ส่ง URL รูปกลับไปให้ Frontend
+                                }
+                            });
                         }
-                    });
+                    );
                 } else {
                     // User doesn't exist, create a new record
                     // Note: password can be null or a random string for OAuth users
                     db.query(
-                        'INSERT INTO users (full_name, username, password) VALUES (?, ?, ?)',
-                        [name, email, 'OAUTH_USER_NO_PASSWORD'],
+                        'INSERT INTO users (full_name, username, password, profile_image) VALUES (?, ?, ?, ?)',
+                        [name, email, 'OAUTH_USER_NO_PASSWORD', profileImage],
                         (err, result) => {
                             if (err) return res.status(500).json({ message: 'Error creating user' });
                             
@@ -139,7 +148,8 @@ app.post('/api/google-login', async (req, res) => {
                                 user: {
                                     id: result.insertId,
                                     username: email,
-                                    fullName: name
+                                    fullName: name,
+                                    profileImage: profileImage // ส่ง URL รูปกลับไปให้ Frontend
                                 }
                             });
                         }
