@@ -49,10 +49,11 @@ function Login({ onLogin, goToSignUp }) {
                 handleLoginFail();
                 return;
             }
-
+            console.log(data.user.id)
+            localStorage.setItem('todo_user_id', data.user.id);
             localStorage.setItem('todo_username', data.user.username);
-            localStorage.setItem('todo_profile', data.user.profileImage); // เซฟลงเครื่อง
-            onLogin(data.user.username, data.user.profileImage);
+            localStorage.setItem('todo_profile', data.user.profileImage);
+            onLogin(data.user.username, data.user.profileImage, data.user.id);
         } catch (err) {
             setError('Network error: Could not connect to the server.');
         }
@@ -67,15 +68,18 @@ function Login({ onLogin, goToSignUp }) {
             const response = await fetch(`${API_URL}/google-login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: credentialResponse.credential,
-                profileImage: googleProfilePic }),
+                body: JSON.stringify({
+                    token: credentialResponse.credential,
+                    profileImage: googleProfilePic
+                }),
             });
 
             const data = await response.json();
             if (response.ok) {
+                localStorage.setItem('todo_user_id', data.user.id);
                 localStorage.setItem('todo_username', data.user.username);
                 localStorage.setItem('todo_profile', data.user.profileImage || '');
-                onLogin(data.user.username, data.user.profileImage || '');
+                onLogin(data.user.username, data.user.profileImage || '', data.user.id);
             } else {
                 setError(data.message || 'Google login failed on server.');
             }

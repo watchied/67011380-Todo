@@ -169,30 +169,56 @@ app.post('/api/google-login', async (req, res) => {
 // 1. READ: Added target_datetime to SELECT
 app.get('/api/todos/:username', (req, res) => {
     const { username } = req.params;
-    const sql = 'SELECT id, task, status, updated, target_datetime FROM todo WHERE username = ?';
-    db.query(sql, [username], (err, results) => {
-        if (err) return res.status(500).send(err);
+
+    // ดึงงานที่เราเป็นคนสร้าง (username) 
+    // หรือ งานที่เราถูก Assign (เช็คผ่านตารางกลาง โดยหาจากชื่อ user ของเรา)
+    const sql = `
+        SELECT t.* FROM todo t
+        LEFT JOIN task_assignments ta ON t.id = ta.todo_id
+        LEFT JOIN users u ON ta.user_id = u.id
+        WHERE (t.username = ? OR u.username = ?) 
+        AND t.team_id IS NULL
+        GROUP BY t.id`;
+
+    db.query(sql, [username, username], (err, results) => {
+        if (err) return res.status(500).json(err);
         res.json(results);
     });
 });
 
 // 2. CREATE: Added target_datetime to INSERT
 app.post('/api/todos', (req, res) => {
-    const { username, task, target_datetime } = req.body; // Receive date from frontend
-    const sql = 'INSERT INTO todo (username, task, status, target_datetime) VALUES (?, ?, "Todo", ?)';
-    db.query(sql, [username, task, target_datetime], (err, result) => {
+    // ปรับมารับค่า assigned_to (ID ตัวเลขตัวเดียว) จาก Frontend
+    const { username, task, target_datetime, team_id, assigned_to } = req.body; 
+
+    // เพิ่ม assigned_to เข้าไปในคำสั่ง SQL หลัก
+    const sql = 'INSERT INTO todo (username, task, status, target_datetime, team_id, assigned_to) VALUES (?, ?, "Todo", ?, ?, ?)';
+    
+    db.query(sql, [username, task, target_datetime, team_id || null, assigned_to || null], (err, result) => {
         if (err) return res.status(500).send(err);
-        res.status(201).send({
+        
+        res.status(201).send({ 
+            success: true, 
             id: result.insertId,
-            username,
-            task,
-            status: 'Todo',
-            target_datetime,
-            updated: new Date()
+            message: 'Task created successfully' 
         });
     });
 });
+app.put('/api/todos/:id/status', (req, res) => {
+    const todoId = req.params.id;
+    const currentUserId = req.body.user_id;
 
+    // เช็คในตาราง assignments
+    const sql = 'SELECT * FROM task_assignments WHERE todo_id = ? AND user_id = ?';
+    db.query(sql, [todoId, currentUserId], (err, results) => {
+        if (results.length > 0 || req.body.is_admin) {
+            // ถ้ามีชื่อติดในงานนี้ หรือเป็น Admin ให้แก้ไขได้
+            // ... (โค้ด UPDATE UPDATE todo SET status = ...)
+        } else {
+            res.status(403).send("คุณไม่มีสิทธิ์แก้ไขงานนี้");
+        }
+    });
+});
 // 3. UPDATE: Change status to 'Todo', 'Doing', or 'Done'
 app.put('/api/todos/:id', (req, res) => {
     const { id } = req.params;
@@ -214,6 +240,7 @@ app.put('/api/todos/:id', (req, res) => {
     });
 });
 
+
 // 4. DELETE: Remains the same
 app.delete('/api/todos/:id', (req, res) => {
     const { id } = req.params;
@@ -224,9 +251,7 @@ app.delete('/api/todos/:id', (req, res) => {
     });
 });
 
-app.listen(port, () => {
-    console.log(`Server listening at http://localhost:${port}`);
-});
+
 
 app.post('/api/register', upload.single('profileImage'), async (req, res) => {
     const { fullName, username, password, captchaToken } = req.body;
@@ -282,4 +307,140 @@ app.post('/api/register', upload.single('profileImage'), async (req, res) => {
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
+});
+
+//team section
+// 1. สร้างทีมใหม่
+app.post('/api/teams', (req, res) => {
+    console.log("Received team creation request:", req.body);
+    const { team_name, creator_username } = req.body;
+
+    // 1. ค้นหา user_id จาก username (เพราะตาราง teams ต้องการ admin_id เป็น int)
+    const findUserSql = 'SELECT id FROM users WHERE username = ?';
+    db.query(findUserSql, [creator_username], (err, userResults) => {
+        if (err || userResults.length === 0) {
+            return res.status(400).json({ message: 'User not found' });
+        }
+
+        const adminId = userResults[0].id;
+
+        // 2. บันทึกลงตาราง teams (ใช้ชื่อ admin_id ตามรูป 1)
+        const sqlTeam = 'INSERT INTO teams (team_name, admin_id) VALUES (?, ?)';
+        db.query(sqlTeam, [team_name, adminId], (teamErr, teamResult) => {
+            if (teamErr) return res.status(500).json(teamErr);
+
+            const teamId = teamResult.insertId;
+
+            // 3. บันทึกลงตาราง team_members (ใช้ team_id และ user_id ตามรูป 2)
+            const sqlMember = 'INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, "admin")';
+            db.query(sqlMember, [teamId, adminId], (memberErr) => {
+                if (memberErr) return res.status(500).json(memberErr);
+                
+                res.status(201).json({ success: true, message: 'Team created successfully' });
+            });
+        });
+    });
+});
+
+// เพิ่ม API สำหรับดึงรายชื่อทีม (สำหรับแสดงใน Sidebar)
+app.get('/api/teams/:username', (req, res) => {
+    const { username } = req.params;
+    const sql = `
+        SELECT t.id, t.team_name, tm.role 
+        FROM teams t
+        JOIN team_members tm ON t.id = tm.team_id
+        JOIN users u ON u.id = tm.user_id
+        WHERE u.username = ?`;
+    
+    db.query(sql, [username], (err, results) => {
+        if (err) return res.status(500).json(err);
+        res.json(results);
+    });
+});
+
+app.get('/api/teams/:teamId/todos', (req, res) => {
+    const { teamId } = req.params;
+    
+    // ดึงงานพร้อมกับรายชื่อผู้ที่ถูก Assign (รวมกลุ่มเป็น String)
+    const sql = `
+        SELECT t.*, 
+        GROUP_CONCAT(u.username) as assigned_names,
+        GROUP_CONCAT(u.id) as assigned_uids
+        FROM todo t
+        LEFT JOIN task_assignments ta ON t.id = ta.todo_id
+        LEFT JOIN users u ON ta.user_id = u.id
+        WHERE t.team_id = ?
+        GROUP BY t.id
+    `;
+
+    db.query(sql, [teamId], (err, results) => {
+        if (err) return res.status(500).json(err);
+        res.json(results);
+    });
+});
+
+app.get('/api/users/search/:username', (req, res) => {
+    const { username } = req.params;
+    db.query('SELECT id, username, full_name, profile_image FROM users WHERE username = ?', [username], (err, results) => {
+        if (err) return res.status(500).json(err);
+        if (results.length === 0) return res.status(404).json({ message: 'User not found' });
+        res.json(results[0]);
+    });
+});
+
+app.get('/api/teams/:team_id/members', (req, res) => {
+    const { team_id } = req.params;
+
+    // เราต้อง JOIN ตาราง users เพื่อเอา "ชื่อ" มาแสดง แทนที่จะเห็นแค่ "ตัวเลข ID"
+    const sql = `
+        SELECT 
+            u.id as user_id, 
+            u.username, 
+            u.full_name, 
+            tm.role 
+        FROM team_members tm
+        JOIN users u ON tm.user_id = u.id
+        WHERE tm.team_id = ?`;
+    
+    db.query(sql, [team_id], (err, results) => {
+        if (err) {
+            console.error("Error fetching members:", err);
+            return res.status(500).json({ error: "Database error" });
+        }
+        // ส่งรายชื่อสมาชิกกลับไปแสดงผลที่หน้าจอ
+        res.json(results);
+    });
+});
+
+// 2. เพิ่มสมาชิกใหม่เข้าทีม
+app.post('/api/teams/invite', (req, res) => {
+    const { team_id, user_id } = req.body; // รับ ID ที่เป็นตัวเลขมาเลย
+
+    // ตรวจสอบก่อนว่าเขามีอยู่ในทีมหรือยัง
+    db.query('SELECT * FROM team_members WHERE team_id = ? AND user_id = ?', [team_id, user_id], (err, results) => {
+        if (results.length > 0) return res.status(400).json({ message: 'User already in team' });
+
+        const sql = 'INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, "member")';
+        db.query(sql, [team_id, user_id], (insErr) => {
+            if (insErr) return res.status(500).json(insErr);
+            res.json({ success: true, message: 'Invited successfully' });
+        });
+    });
+});
+
+app.delete('/api/teams/:team_id/members/:user_id', (req, res) => {
+    const { team_id, user_id } = req.params;
+    
+    // ป้องกัน Admin ลบตัวเองออก (ควรเหลือ Admin ไว้อย่างน้อย 1 คน)
+    const sql = 'DELETE FROM team_members WHERE team_id = ? AND user_id = ? AND role != "admin"';
+    
+    db.query(sql, [team_id, user_id], (err, result) => {
+        if (err) return res.status(500).json(err);
+        if (result.affectedRows === 0) return res.status(400).json({ message: "Cannot remove admin or member not found" });
+        res.json({ success: true, message: 'Member removed' });
+    });
+});
+
+app.listen(port, () => {
+    console.log(`Server listening at http://localhost:${port}`);
 });
