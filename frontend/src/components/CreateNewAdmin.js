@@ -3,12 +3,12 @@ import { FiEye, FiEyeOff } from "react-icons/fi";
 import ReCAPTCHA from "react-google-recaptcha";
 const API_URL = process.env.REACT_APP_API_URL;
 
-function SignUp({ onSuccess, goToLogIn }) {
+function CreateNewAdmin({ onSuccess, onBack }) {
     const recaptchaRef = useRef(null);
     const [fullName, setFullName] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState('user');
+    const [role] = useState('admin');
     const [skills, setSkills] = useState('');
     const [profileImage, setProfileImage] = useState(null);
     const [error, setError] = useState('');
@@ -76,7 +76,7 @@ function SignUp({ onSuccess, goToLogIn }) {
 
     return (
         <div className="text-center">
-            <h4 className="fw-bold mb-2">Sign Up</h4>
+            <h4 className="fw-bold mb-2">Create New Admin</h4>
             <p className="text-muted small mb-4">
                 Create your CEI Todo account
             </p>
@@ -142,54 +142,7 @@ function SignUp({ onSuccess, goToLogIn }) {
                         </span>
                     </div>
                 </div>
-                {/* Role Selection */}
-                <div className="mb-3 text-start">
-                    <label className="form-label small fw-bold text-secondary">Register as</label>
-                    <div className="d-flex gap-3">
-                        <div className="form-check">
-                            <input
-                                className="form-check-input"
-                                type="radio"
-                                name="role"
-                                id="roleUser"
-                                value="user"
-                                checked={role === 'user'}
-                                onChange={(e) => setRole(e.target.value)}
-                            />
-                            <label className="form-check-label small" htmlFor="roleUser">User (Client)</label>
-                        </div>
-                        <div className="form-check">
-                            <input
-                                className="form-check-input"
-                                type="radio"
-                                name="role"
-                                id="roleAssignee"
-                                value="assignee"
-                                checked={role === 'assignee'}
-                                onChange={(e) => setRole(e.target.value)}
-                            />
-                            <label className="form-check-label small" htmlFor="roleAssignee">Assignee (Worker)</label>
-                        </div>
-                    </div>
-                </div>
-                {role === 'assignee' && (
-                    <div className="mb-3 text-start animate__animated animate__fadeIn">
-                        <label className="form-label small fw-bold text-secondary">
-                            Skills / Expertise
-                        </label>
-                        <textarea
-                            className="form-control"
-                            rows="2"
-                            placeholder="e.g. Graphic Design, Data Entry, Node.js"
-                            value={skills}
-                            onChange={(e) => setSkills(e.target.value)}
-                        />
-                        <div className="form-text" style={{ fontSize: '0.7rem' }}>
-                            Tell us what you're good at so others can assign tasks to you correctly.
-                        </div>
-                    </div>
-                )}
-                {/* Profile Image */}
+                
                 <div className="mb-3 text-start">
                     <label className="form-label small fw-bold text-secondary">
                         Profile Image
@@ -214,14 +167,14 @@ function SignUp({ onSuccess, goToLogIn }) {
                         onChange={(token) => setCaptchaToken(token)}
                     />
                 </div>
-                <button type="submit" className="btn btn-primary w-100 py-2">
+                <button type="submit" className="btn btn-primary w-100 py-2 mt-2">
                     Create Account
                 </button>
                 <div className="d-flex justify-content-end mt-3">
                     <span
                         className="small text-primary"
                         style={{ cursor: 'pointer' }}
-                        onClick={goToLogIn}
+                        onClick={onBack}
                     >
                         Already have an account? Login
                     </span>
@@ -231,4 +184,4 @@ function SignUp({ onSuccess, goToLogIn }) {
     );
 }
 
-export default SignUp;
+export default CreateNewAdmin;

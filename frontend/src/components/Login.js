@@ -13,7 +13,6 @@ function Login({ onLogin, goToSignUp }) {
     const [password, setPassword] = useState('');
     const [captchaToken, setCaptchaToken] = useState(null);
     const [showPassword, setShowPassword] = useState(false);
-    const GOOGLE_CLIENT_ID = "618947792486-r6e8k3bib6dgm47c4i5di5ekvasc3r08.apps.googleusercontent.com";
 
     const handleLoginFail = async () => {
         setCaptchaToken(null);
@@ -53,7 +52,8 @@ function Login({ onLogin, goToSignUp }) {
             localStorage.setItem('todo_user_id', data.user.id);
             localStorage.setItem('todo_username', data.user.username);
             localStorage.setItem('todo_profile', data.user.profileImage);
-            onLogin(data.user.username, data.user.profileImage, data.user.id);
+            localStorage.setItem('todo_user_role', data.user.role);
+            onLogin(data.user.username, data.user.profileImage, data.user.id, data.user.role);
         } catch (err) {
             setError('Network error: Could not connect to the server.');
         }
@@ -79,7 +79,8 @@ function Login({ onLogin, goToSignUp }) {
                 localStorage.setItem('todo_user_id', data.user.id);
                 localStorage.setItem('todo_username', data.user.username);
                 localStorage.setItem('todo_profile', data.user.profileImage || '');
-                onLogin(data.user.username, data.user.profileImage || '', data.user.id);
+                localStorage.setItem('todo_user_role', data.user.role);
+                onLogin(data.user.username, data.user.profileImage || '', data.user.id, data.user.role);
             } else {
                 setError(data.message || 'Google login failed on server.');
             }

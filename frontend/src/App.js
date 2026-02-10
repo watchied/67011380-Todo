@@ -3,6 +3,7 @@ import Login from './components/Login';
 import TodoList from './components/TodoList';
 import SignUp from './components/Signin';
 import CreateTeam from './components/CreateTeam';
+import CreateNewAdmin from './components/CreateNewAdmin';
 import './App.css'; // Make sure this is imported!
 
 function App() {
@@ -10,31 +11,39 @@ function App() {
     const [page, setPage] = useState('login');
     const [currentUserId, setCurrentUserId] = useState(null);
     const [profileImage, setProfileImage] = useState('');
+    const [userRole, setUserRole] = useState('');
     useEffect(() => {
         const storedUser = localStorage.getItem('todo_username');
         if (storedUser) setCurrentUser(storedUser);
         const storedImage = localStorage.getItem('todo_profile');
         if (storedImage) setProfileImage(storedImage);
+        const storedRole = localStorage.getItem('todo_user_role');
+        if (storedRole) setUserRole(storedRole);
         const storedUserId = localStorage.getItem('todo_user_id');
         if (storedUserId) setCurrentUserId(storedUserId);
     }, []);
 
-    const handleLogin = (username, image, id) => {
+    const handleLogin = (username, image, id, role) => {
         setCurrentUser(username);
         setCurrentUserId(id);
         setProfileImage(image);
+        setUserRole(role);
         localStorage.setItem('todo_username', username);
         localStorage.setItem('todo_user_id', id); // บันทึกลงเครื่อง
         localStorage.setItem('todo_profile', image);
+        localStorage.setItem('todo_user_role', role);
         setPage('todoList'); // ไปที่หน้า Todo หลัง Login สำเร็จ
+        console.log(role);
     };
 
     const handleLogout = () => {
         localStorage.removeItem('todo_username');
         localStorage.removeItem('todo_user_id'); // ลบ ID ออกตอน Logout
         localStorage.removeItem('todo_profile');
+        localStorage.removeItem('todo_user_role');
         setCurrentUser(null);
         setCurrentUserId(null);
+        setUserRole('');
         setPage('login');
     };
 
@@ -68,13 +77,20 @@ function App() {
                                         username={currentUser}
                                         onBack={() => setPage('todoList')}
                                     />
-                                ) : (
+                                ) : page === 'createNewAdmin' ? (
+                                    <CreateNewAdmin
+                                        onSuccess={() => setPage('todoList')}
+                                        onBack={() => setPage('todoList')}
+                                    />
+                                ) :  (
                                     <TodoList
                                         username={currentUser}
                                         userId={currentUserId} // ส่ง ID เข้าไปที่ TodoList เพื่อใช้เช็คสิทธิ์
                                         onLogout={handleLogout}
                                         profileImage={profileImage}
                                         createTeam={() => setPage('createTeam')}
+                                        createNewAdmin={() => setPage('createNewAdmin')}
+                                        role={userRole}
                                     />
                                 )
                             ) : page === 'login' ? (
