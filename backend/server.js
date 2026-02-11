@@ -1,3 +1,4 @@
+import { generateSupportTicket } from "./services/aiService.js";
 require("dotenv").config();
 const express = require('express');
 const mysql = require('mysql2');
@@ -432,75 +433,7 @@ app.put('/api/todos/:id/assign', (req, res) => {
         res.send({ success: true, message: 'Assignee updated' });
     });
 });
-//team section
-// 1. สร้างทีมใหม่
-/*app.post('/api/teams', (req, res) => {
-    console.log("Received team creation request:", req.body);
-    const { team_name, creator_username } = req.body;
 
-    // 1. ค้นหา user_id จาก username (เพราะตาราง teams ต้องการ admin_id เป็น int)
-    const findUserSql = 'SELECT id FROM users WHERE username = ?';
-    db.query(findUserSql, [creator_username], (err, userResults) => {
-        if (err || userResults.length === 0) {
-            return res.status(400).json({ message: 'User not found' });
-        }
-
-        const adminId = userResults[0].id;
-
-        // 2. บันทึกลงตาราง teams (ใช้ชื่อ admin_id ตามรูป 1)
-        const sqlTeam = 'INSERT INTO teams (team_name, admin_id) VALUES (?, ?)';
-        db.query(sqlTeam, [team_name, adminId], (teamErr, teamResult) => {
-            if (teamErr) return res.status(500).json(teamErr);
-
-            const teamId = teamResult.insertId;
-
-            // 3. บันทึกลงตาราง team_members (ใช้ team_id และ user_id ตามรูป 2)
-            const sqlMember = 'INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, "admin")';
-            db.query(sqlMember, [teamId, adminId], (memberErr) => {
-                if (memberErr) return res.status(500).json(memberErr);
-
-                res.status(201).json({ success: true, message: 'Team created successfully' });
-            });
-        });
-    });
-});
-
-// เพิ่ม API สำหรับดึงรายชื่อทีม (สำหรับแสดงใน Sidebar)
-app.get('/api/teams/:username', (req, res) => {
-    const { username } = req.params;
-    const sql = `
-        SELECT t.id, t.team_name, tm.role 
-        FROM teams t
-        JOIN team_members tm ON t.id = tm.team_id
-        JOIN users u ON u.id = tm.user_id
-        WHERE u.username = ?`;
-
-    db.query(sql, [username], (err, results) => {
-        if (err) return res.status(500).json(err);
-        res.json(results);
-    });
-});
-
-app.get('/api/teams/:teamId/todos', (req, res) => {
-    const { teamId } = req.params;
-
-    // ดึงงานพร้อมกับรายชื่อผู้ที่ถูก Assign (รวมกลุ่มเป็น String)
-    const sql = `
-        SELECT t.*, 
-        GROUP_CONCAT(u.username) as assigned_names,
-        GROUP_CONCAT(u.id) as assigned_uids
-        FROM todo t
-        LEFT JOIN task_assignments ta ON t.id = ta.todo_id
-        LEFT JOIN users u ON ta.user_id = u.id
-        WHERE t.team_id = ?
-        GROUP BY t.id
-    `;
-
-    db.query(sql, [teamId], (err, results) => {
-        if (err) return res.status(500).json(err);
-        res.json(results);
-    });
-});*/
 
 app.get('/api/users/search/:username', (req, res) => {
     const { username } = req.params;
@@ -511,58 +444,28 @@ app.get('/api/users/search/:username', (req, res) => {
     });
 });
 
-/*app.get('/api/teams/:team_id/members', (req, res) => {
-    const { team_id } = req.params;
+app.post('/api/user-requests', (req, res) => {
+    const { user_email, message, user_id } = req.body;
 
-    // เราต้อง JOIN ตาราง users เพื่อเอา "ชื่อ" มาแสดง แทนที่จะเห็นแค่ "ตัวเลข ID"
-    const sql = `
-        SELECT 
-            u.id as user_id, 
-            u.username, 
-            u.full_name, 
-            tm.role 
-        FROM team_members tm
-        JOIN users u ON tm.user_id = u.id
-        WHERE tm.team_id = ?`;
+    if (!message) {
+        return res.status(400).json({ message: "Please provide a description of your issue." });
+    }
 
-    db.query(sql, [team_id], (err, results) => {
+    const sqlRequest = "INSERT INTO user_requests (user_id, user_email, message, status) VALUES (?, ?, ?, 'received')";
+    
+    db.query(sqlRequest, [user_id, user_email, message], (err, result) => {
         if (err) {
-            console.error("Error fetching members:", err);
-            return res.status(500).json({ error: "Database error" });
+            console.error("Database Error:", err);
+            return res.status(500).json({ error: "Failed to save the request to the database." });
         }
-        // ส่งรายชื่อสมาชิกกลับไปแสดงผลที่หน้าจอ
-        res.json(results);
-    });
-});
-
-// 2. เพิ่มสมาชิกใหม่เข้าทีม
-app.post('/api/teams/invite', (req, res) => {
-    const { team_id, user_id } = req.body; // รับ ID ที่เป็นตัวเลขมาเลย
-
-    // ตรวจสอบก่อนว่าเขามีอยู่ในทีมหรือยัง
-    db.query('SELECT * FROM team_members WHERE team_id = ? AND user_id = ?', [team_id, user_id], (err, results) => {
-        if (results.length > 0) return res.status(400).json({ message: 'User already in team' });
-
-        const sql = 'INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, "member")';
-        db.query(sql, [team_id, user_id], (insErr) => {
-            if (insErr) return res.status(500).json(insErr);
-            res.json({ success: true, message: 'Invited successfully' });
+        
+        res.status(201).json({ 
+            success: true, 
+            message: "Request submitted successfully. Our team will review it shortly.",
+            request_id: result.insertId
         });
     });
 });
-
-app.delete('/api/teams/:team_id/members/:user_id', (req, res) => {
-    const { team_id, user_id } = req.params;
-
-    // ป้องกัน Admin ลบตัวเองออก (ควรเหลือ Admin ไว้อย่างน้อย 1 คน)
-    const sql = 'DELETE FROM team_members WHERE team_id = ? AND user_id = ? AND role != "admin"';
-
-    db.query(sql, [team_id, user_id], (err, result) => {
-        if (err) return res.status(500).json(err);
-        if (result.affectedRows === 0) return res.status(400).json({ message: "Cannot remove admin or member not found" });
-        res.json({ success: true, message: 'Member removed' });
-    });
-});*/
 
 app.listen(port, () => {
     console.log(`Server listening at http://localhost:${port}`);
