@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import ReCAPTCHA from "react-google-recaptcha";
 const API_URL = process.env.REACT_APP_API_URL;
@@ -14,11 +14,27 @@ function SignUp({ onSuccess, goToLogIn }) {
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [captchaToken, setCaptchaToken] = useState(null);
+    const [availableCategories, setAvailableCategories] = useState([]);
+    const [selectedSkills, setSelectedSkills] = useState([]); // เก็บเป็น Array ของ ID
+
+
     const handleLoginFail = async () => {
         setCaptchaToken(null);
         if (recaptchaRef.current) {
             recaptchaRef.current.reset();
         }
+    };
+    useEffect(() => {
+        fetch(`${API_URL}/categories`)
+            .then(res => res.json())
+            .then(data => setAvailableCategories(data));
+    }, []);
+    const handleSkillChange = (categoryId) => {
+        setSelectedSkills(prev =>
+            prev.includes(categoryId)
+                ? prev.filter(id => id !== categoryId)
+                : [...prev, categoryId]
+        );
     };
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -38,7 +54,7 @@ function SignUp({ onSuccess, goToLogIn }) {
             setError("Please verify that you are not a robot.");
             return;
         }
-        if (role === 'assignee' && !skills) {
+        if (role === 'assignee' && selectedSkills.length === 0) {
             setError('Please specify your skills/expertise.');
             return;
         }
@@ -47,7 +63,7 @@ function SignUp({ onSuccess, goToLogIn }) {
         formData.append('username', username);
         formData.append('password', password);
         formData.append('role', role); // เพิ่ม role
-        formData.append('skills', role === 'assignee' ? skills : ''); // ส่ง skills ถ้าเป็น assignee
+        formData.append('skills', role === 'assignee' ? JSON.stringify(selectedSkills) : '[]');
         formData.append("captchaToken", captchaToken);
         if (profileImage) {
             formData.append('profileImage', profileImage);
@@ -173,19 +189,23 @@ function SignUp({ onSuccess, goToLogIn }) {
                     </div>
                 </div>
                 {role === 'assignee' && (
-                    <div className="mb-3 text-start animate__animated animate__fadeIn">
-                        <label className="form-label small fw-bold text-secondary">
-                            Skills / Expertise
-                        </label>
-                        <textarea
-                            className="form-control"
-                            rows="2"
-                            placeholder="e.g. Graphic Design, Data Entry, Node.js"
-                            value={skills}
-                            onChange={(e) => setSkills(e.target.value)}
-                        />
-                        <div className="form-text" style={{ fontSize: '0.7rem' }}>
-                            Tell us what you're good at so others can assign tasks to you correctly.
+                    <div className="mb-3 text-start">
+                        <label className="form-label small fw-bold text-secondary">Expertise (Select all that apply)</label>
+                        <div className="border rounded p-2" style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                            {availableCategories.map(cat => (
+                                <div key={cat.id} className="form-check">
+                                    <input
+                                        className="form-check-input"
+                                        type="checkbox"
+                                        id={`cat-${cat.id}`}
+                                        checked={selectedSkills.includes(cat.id)}
+                                        onChange={() => handleSkillChange(cat.id)}
+                                    />
+                                    <label className="form-check-label small" htmlFor={`cat-${cat.id}`}>
+                                        {cat.name}
+                                    </label>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}

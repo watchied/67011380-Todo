@@ -1,21 +1,22 @@
+import 'dotenv/config'; // แทนที่ require("dotenv").config()
+import express from 'express';
+import mysql from 'mysql2';
+import cors from 'cors';
+import multer from 'multer';
+import bcrypt from 'bcrypt';
+import axios from 'axios';
+import { OAuth2Client } from 'google-auth-library';
 import { generateSupportTicket } from "./services/aiService.js";
-require("dotenv").config();
-const express = require('express');
-const mysql = require('mysql2');
-const cors = require('cors');
-const multer = require('multer');
-const bcrypt = require('bcrypt');
-const uploadProfile = multer({ dest: 'uploads/' });
 
 const app = express();
-const axios = require('axios');
 const port = 5001;
-const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 app.use('/uploads', express.static('uploads'));
 app.use(cors());
 app.use(express.json());
 
+// MySQL Connection
 const db = mysql.createConnection({
     host: process.env.host,
     user: process.env.user,
@@ -25,17 +26,17 @@ const db = mysql.createConnection({
 });
 
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/') // เก็บไฟล์ที่โฟลเดอร์ uploads/
-    },
-    filename: function (req, file, cb) {
+    destination: (req, file, cb) => cb(null, 'uploads/'),
+    filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        // เก็บชื่อไฟล์แบบ: timestamp-ชื่อเดิม (ป้องกันชื่อซ้ำ)
-        cb(null, uniqueSuffix + '-' + file.originalname)
+        cb(null, uniqueSuffix + '-' + file.originalname);
     }
 });
-const uploadFile = multer({ storage: storage });
+
 const upload = multer({ storage: storage });
+const uploadFile = upload;
+const uploadProfile = upload;
+
 db.connect(err => {
     if (err) {
         console.error('Error connecting to MySQL:', err);
@@ -341,71 +342,75 @@ app.post('/api/todos/:id/upload', uploadFile.array('attachments', 10), (req, res
 });
 
 app.post('/api/register', uploadProfile.single('profileImage'), async (req, res) => {
-    // 1. รับค่า role และ skills เพิ่มเติมจาก req.body
     const { fullName, username, password, captchaToken, role, skills } = req.body;
 
-    // ตรวจสอบฟิลด์ที่จำเป็น (เพิ่ม role เข้าไปด้วย)
     if (!fullName || !username || !password || !captchaToken || !role) {
         return res.status(400).json({ message: 'Missing required fields' });
     }
 
     try {
-        // --- ส่วนตรวจสอบ reCAPTCHA (เหมือนเดิม) ---
+        // --- 1. ตรวจสอบ reCAPTCHA (เหมือนเดิม) ---
         const captchaResponse = await axios.post(
             'https://www.google.com/recaptcha/api/siteverify',
             null,
-            {
-                params: {
-                    secret: process.env.RECAPTCHA_SECRET_KEY,
-                    response: captchaToken
-                }
-            }
+            { params: { secret: process.env.RECAPTCHA_SECRET_KEY, response: captchaToken } }
         );
 
         if (!captchaResponse.data.success) {
             return res.status(400).json({ message: 'CAPTCHA verification failed' });
         }
 
-        // --- ตรวจสอบ Username ซ้ำ ---
-        db.query(
-            'SELECT id FROM users WHERE username = ?',
-            [username],
-            async (err, results) => {
-                if (err) return res.status(500).json({ message: 'Database error' });
+        // --- 2. ตรวจสอบ Username ซ้ำ (เหมือนเดิม) ---
+        db.query('SELECT id FROM users WHERE username = ?', [username], async (err, results) => {
+            if (err) return res.status(500).json({ message: 'Database error' });
+            if (results.length > 0) return res.status(400).json({ message: 'Username already exists' });
 
-                if (results.length > 0) {
-                    return res.status(400).json({ message: 'Username already exists' });
+            const hashedPassword = await bcrypt.hash(password, 10);
+            const profileImage = req.file ? req.file.filename : null;
+
+            // --- 3. Insert User ลงตาราง users ---
+            // เราจะไม่ส่ง skills ลงในตาราง users แล้ว แต่จะแยกไปตารางกลางแทน
+            const sqlUser = `
+                INSERT INTO users (full_name, username, password, profile_image, role)
+                VALUES (?, ?, ?, ?, ?)
+            `;
+
+            db.query(sqlUser, [fullName, username, hashedPassword, profileImage, role], (err, userResult) => {
+                if (err) {
+                    console.error("Registration Error:", err);
+                    return res.status(500).json({ message: 'Database error during insertion' });
                 }
 
-                const hashedPassword = await bcrypt.hash(password, 10);
-                const profileImage = req.file ? req.file.filename : null;
+                const userId = userResult.insertId; // ดึง ID ของ user ที่เพิ่งสร้าง
 
-                // 2. ปรับ Query บันทึกข้อมูล (เพิ่มคอลัมน์ role และ skills)
-                // หมายเหตุ: skills จะเป็นค่าว่างถ้าเลือกเป็น 'user'
-                const finalSkills = role === 'assignee' ? skills : null;
+                // --- 4. บันทึกทักษะลงตาราง user_skills (ถ้ามี) ---
+                if (role === 'assignee' && skills) {
+                    try {
+                        // แปลง string "[1,2,3]" ที่ส่งมาจาก Frontend ให้เป็น Array
+                        const skillIds = JSON.parse(skills);
 
-                const sql = `
-                    INSERT INTO users (full_name, username, password, profile_image, role, skills)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                `;
+                        if (skillIds.length > 0) {
+                            // เตรียมข้อมูลสำหรับ Bulk Insert: [[userId, catId1], [userId, catId2], ...]
+                            const skillValues = skillIds.map(catId => [userId, catId]);
 
-                db.query(
-                    sql,
-                    [fullName, username, hashedPassword, profileImage, role, finalSkills],
-                    (err) => {
-                        if (err) {
-                            console.error("Registration Error:", err);
-                            return res.status(500).json({ message: 'Database error during insertion' });
+                            const sqlSkills = `INSERT INTO user_skills (user_id, category_id) VALUES ?`;
+
+                            db.query(sqlSkills, [skillValues], (skillErr) => {
+                                if (skillErr) console.error("Error saving user skills:", skillErr);
+                                // เราไม่ return error ตรงนี้เพื่อให้การสมัครสมาชิกหลักยังสำเร็จ
+                            });
                         }
-
-                        res.status(201).json({
-                            success: true,
-                            message: 'User registered successfully'
-                        });
+                    } catch (parseErr) {
+                        console.error("Failed to parse skills JSON:", parseErr);
                     }
-                );
-            }
-        );
+                }
+
+                res.status(201).json({
+                    success: true,
+                    message: 'User registered successfully and skills linked!'
+                });
+            });
+        });
     } catch (err) {
         console.error("Server Error:", err);
         res.status(500).json({ message: 'Server error' });
@@ -452,18 +457,75 @@ app.post('/api/user-requests', (req, res) => {
     }
 
     const sqlRequest = "INSERT INTO user_requests (user_id, user_email, message, status) VALUES (?, ?, ?, 'received')";
-    
-    db.query(sqlRequest, [user_id, user_email, message], (err, result) => {
+
+    db.query(sqlRequest, [user_id, user_email, message], async (err, result) => {
         if (err) {
             console.error("Database Error:", err);
-            return res.status(500).json({ error: "Failed to save the request to the database." });
+            return res.status(500).json({ error: "Failed to save the request." });
         }
-        
-        res.status(201).json({ 
-            success: true, 
-            message: "Request submitted successfully. Our team will review it shortly.",
-            request_id: result.insertId
+
+        const requestId = result.insertId;
+
+        try {
+            // 1. ดึงรายชื่อ Assignee ทั้งหมดพร้อมทักษะ (Expertise)
+            const getAssigneesSql = `
+                SELECT u.id, u.full_name, GROUP_CONCAT(c.name SEPARATOR ', ') AS expertise
+                FROM users u
+                INNER JOIN user_skills us ON u.id = us.user_id
+                INNER JOIN categories c ON us.category_id = c.id
+                WHERE u.role = 'assignee'
+                GROUP BY u.id
+            `;
+
+            db.query(getAssigneesSql, async (assigneeErr, assigneesList) => {
+                if (assigneeErr) return console.error("Error fetching assignees:", assigneeErr);
+
+                // 2. ส่ง message และ รายชื่อพนักงานไปให้ AI (อย่าลืมแก้ generateSupportTicket ให้รับ parameter เพิ่ม)
+                const ticket = await generateSupportTicket(message, assigneesList);
+                console.log(assigneesList);
+                console.log("AI Suggested Ticket:", ticket);
+                // 3. หา ID ของคนที่ AI เลือกมา (เปรียบเทียบจากชื่อที่ AI คืนกลับมาใน ticket.assignee_category_id)
+                const suggestedAssigneeId = ticket.assignee_category_id[0];
+                
+
+                // 4. หา ID ของหมวดหมู่ (Category) จากชื่อที่ AI แนะนำมา
+                const findCategorySql = "SELECT id FROM categories WHERE name = ? LIMIT 1";
+                
+                db.query(findCategorySql, [ticket.category], (catErr, catResults) => {
+                    const categoryId = (!catErr && catResults.length > 0) ? catResults[0].id : null;
+                    const resolutionPath = JSON.stringify(ticket.suggestedSolution);
+
+                    // 5. บันทึกลง draft_tickets พร้อม Assignee ID และ Category ID
+                    const sqlDraft = `
+                        INSERT INTO draft_tickets (title, category, summary, resolution_path, suggested_assignees,assigned_to, status, created_by_ai) 
+                        VALUES (?, ?, ?, ?, ?, ?, 'Draft', 1)`;
+                    console.log("Inserting Draft Ticket with:", [ticket.title, ticket.category, ticket.summary, resolutionPath, suggestedAssigneeId, ticket.assigned_to_id]);
+                    db.query(sqlDraft, [ticket.title, ticket.category, ticket.summary, resolutionPath, suggestedAssigneeId, ticket.assigned_to_id], (draftErr, draftResult) => {
+                        if (draftErr) return console.error("Draft Insert Error:", draftErr);
+
+                        // 6. อัปเดตสถานะ user_requests เป็น 'draft' เพื่อเชื่อมโยงข้อมูล
+                        db.query("UPDATE user_requests SET draft_ticket_id = ?, status = 'draft' WHERE id = ?", [draftResult.insertId, requestId]);
+                    });
+                });
+            });
+
+        } catch (aiErr) {
+            console.error("AI Analysis failed:", aiErr);
+        }
+
+        // ส่ง Response กลับทันทีเพื่อให้ User ไม่ต้องรอนาน
+        res.status(201).json({
+            success: true,
+            message: "Request submitted successfully. AI is drafting your ticket.",
+            request_id: requestId
         });
+    });
+});
+
+app.get('/api/categories', (req, res) => {
+    db.query("SELECT id, name FROM categories", (err, results) => {
+        if (err) return res.status(500).json(err);
+        res.json(results);
     });
 });
 
